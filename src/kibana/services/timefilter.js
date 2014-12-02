@@ -25,15 +25,17 @@ define(function (require) {
 
       self.enabled = false;
 
-      // These can be date math strings or moments.
-      self.time = _.defaults(globalState.time || {}, {
+      var timeDefaults = {
         from: 'now-15m',
         to: 'now'
-      });
+      };
+
+      // These can be date math strings or moments.
+      self.time = _.defaults(globalState.time || {}, timeDefaults);
 
       globalState.on('fetch_with_changes', function () {
         // clone and default to {} in one
-        var newTime = _.clone(globalState.time);
+        var newTime = _.defaults({}, globalState.time, timeDefaults);
 
         if (newTime) {
           if (newTime.to) newTime.to = convertISO8601(newTime.to);
@@ -70,8 +72,8 @@ define(function (require) {
         var bounds = this.getBounds();
         filter = {range : {}};
         filter.range[timefield.name] = {
-          gte: bounds.min,
-          lte: bounds.max
+          gte: bounds.min.valueOf(),
+          lte: bounds.max.valueOf()
         };
       }
       return filter;

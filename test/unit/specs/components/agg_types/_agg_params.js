@@ -6,6 +6,7 @@ define(function (require) {
     var BaseAggParam;
     var FieldAggParam;
     var OptionedAggParam;
+    var RegexAggParam;
 
     beforeEach(module('kibana'));
     // stub out the param classes before we get the AggParams
@@ -16,27 +17,32 @@ define(function (require) {
       BaseAggParam = Private(require('components/agg_types/param_types/base'));
       FieldAggParam = Private(require('components/agg_types/param_types/field'));
       OptionedAggParam = Private(require('components/agg_types/param_types/optioned'));
+      RegexAggParam = Private(require('components/agg_types/param_types/regex'));
     }));
 
     describe('constructor args', function () {
       it('accepts an object of params defs', function () {
-        var aggParams = new AggParams({
+        var params = {
           one: {},
           two: {}
-        });
+        };
+        var paramLength = Object.keys(params).length + 1; // json is appended
+        var aggParams = new AggParams(params);
 
-        expect(aggParams).to.have.length(2);
+        expect(aggParams).to.have.length(paramLength);
         expect(aggParams).to.be.an(Array);
         expect(aggParams.byName).to.have.keys(['one', 'two']);
       });
 
       it('accepts an array of param defs', function () {
-        var aggParams = new AggParams([
+        var params = [
           { name: 'one' },
           { name: 'two' }
-        ]);
+        ];
+        var paramLength = params.length + 1; // json is appended
+        var aggParams = new AggParams(params);
 
-        expect(aggParams).to.have.length(2);
+        expect(aggParams).to.have.length(paramLength);
         expect(aggParams).to.be.an(Array);
         expect(aggParams.byName).to.have.keys(['one', 'two']);
       });
@@ -44,33 +50,46 @@ define(function (require) {
 
     describe('AggParam creation', function () {
       it('Uses the FieldAggParam class for params with the name "field"', function () {
-        var aggParams = new AggParams([
+        var params = [
           { name: 'field' }
-        ]);
+        ];
+        var paramLength = params.length + 1; // json is appended
+        var aggParams = new AggParams(params);
 
-        expect(aggParams).to.have.length(1);
+        expect(aggParams).to.have.length(paramLength);
         expect(aggParams[0]).to.be.a(FieldAggParam);
-        expect(aggParams[0]).to.be.a(BaseAggParam);
       });
 
-      it('Uses the OptionedAggParam class for params with defined options', function () {
-        var aggParams = new AggParams([
+      it('Uses the OptionedAggParam class for params of type "optioned"', function () {
+        var params = [
           {
             name: 'interval',
-            options: [
-              { display: 'Automatic', val: 'auto' },
-              { display: '2 Hours', val: '2h' }
-            ]
+            type: 'optioned'
           }
-        ]);
+        ];
+        var paramLength = params.length + 1; // json is appended
+        var aggParams = new AggParams(params);
 
-        expect(aggParams).to.have.length(1);
+        expect(aggParams).to.have.length(paramLength);
         expect(aggParams[0]).to.be.a(OptionedAggParam);
-        expect(aggParams[0]).to.be.a(BaseAggParam);
+      });
+
+      it('Uses the RegexAggParam class for params of type "regex"', function () {
+        var params = [
+          {
+            name: 'exclude',
+            type: 'regex'
+          }
+        ];
+        var paramLength = params.length + 1; // json is appended
+        var aggParams = new AggParams(params);
+
+        expect(aggParams).to.have.length(paramLength);
+        expect(aggParams[0]).to.be.a(RegexAggParam);
       });
 
       it('Always converts the params to a BaseAggParam', function () {
-        var aggParams = new AggParams([
+        var params = [
           {
             name: 'height',
             editor: '<blink>high</blink>'
@@ -83,13 +102,15 @@ define(function (require) {
             name: 'waist',
             editor: '<blink>small</blink>'
           }
-        ]);
+        ];
+        var paramLength = params.length + 1; // json is appended
+        var aggParams = new AggParams(params);
 
-        expect(BaseAggParam).to.have.property('callCount', 3);
+        expect(BaseAggParam).to.have.property('callCount', paramLength);
         expect(FieldAggParam).to.have.property('callCount', 0);
         expect(OptionedAggParam).to.have.property('callCount', 0);
 
-        expect(aggParams).to.have.length(3);
+        expect(aggParams).to.have.length(paramLength);
         aggParams.forEach(function (aggParam) {
           expect(aggParam).to.be.a(BaseAggParam);
         });

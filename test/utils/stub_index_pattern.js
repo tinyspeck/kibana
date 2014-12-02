@@ -1,12 +1,12 @@
 define(function (require) {
   return function (Private) {
     var sinon = require('sinon/sinon');
-    var Registry = require('utils/registry/registry');
+    var IndexedArray = require('utils/indexed_array/index');
     var fieldFormats = Private(require('components/index_patterns/_field_formats'));
 
     function StubIndexPattern(pattern, timeField, fields) {
       this.popularizeField = sinon.spy();
-      this.fields = new Registry({
+      this.fields = new IndexedArray({
         index: ['name'],
         group: ['type'],
         initialSet: fields.map(function (field) {
@@ -16,7 +16,7 @@ define(function (require) {
           Object.defineProperty(field, 'format', {
             enumerable: false,
             get: function () {
-              fieldFormats.defaultByType[field.type];
+              return fieldFormats.defaultByType[field.type];
             }
           });
 

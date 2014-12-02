@@ -6,6 +6,7 @@ module.exports = function (grunt) {
     'require_css_deps:copy',
     'less',
     'copy:kibana_src',
+    'clean:dev_only_plugins',
     'touch_config',
     'replace:build_props',
     'requirejs',
@@ -18,6 +19,9 @@ module.exports = function (grunt) {
     'copy:dist',
     'compile_dist_readme',
     'chmod_kibana',
+    'make_plugin_dir',
+    'copy:plugin_readme',
+    'describe_bundled_plugins',
     'copy:versioned_dist',
     'create_packages'
   ]);

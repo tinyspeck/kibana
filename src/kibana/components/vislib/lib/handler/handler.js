@@ -5,13 +5,14 @@ define(function (require) {
     var Data = Private(require('components/vislib/lib/data'));
     var Layout = Private(require('components/vislib/lib/layout/layout'));
 
-    /*
+    /**
      * Handles building all the components of the visualization
-     * arguments:
-     *  vis => this object from vis.js
      *
-     *  returns an object with reference to the vis.prototype,
-     *  and news up all the constructors needed to build a visualization
+     * @class Handler
+     * @constructor
+     * @param vis {Object} Reference to the Vis Class Constructor
+     * @param opts {Object} Reference to Visualization constructors needed to
+     * create the visualization
      */
     function Handler(vis, opts) {
       if (!(this instanceof Handler)) {
@@ -22,11 +23,12 @@ define(function (require) {
       this.vis = vis;
       this.el = vis.el;
       this.ChartClass = vis.ChartClass;
+      this.charts = [];
+
       this._attr = _.defaults(vis._attr || {}, {
         'margin' : { top: 10, right: 3, bottom: 5, left: 3 }
       });
 
-      // Visualization constructors
       this.layout = new Layout(vis.el, vis.data, vis._attr.type);
       this.xAxis = opts.xAxis;
       this.yAxis = opts.yAxis;
@@ -37,11 +39,9 @@ define(function (require) {
         this.legend = opts.legend;
       }
 
-      // Array of objects to render to the visualization
       this.renderArray = _.filter([
         this.layout,
         this.legend,
-        this.tooltip,
         this.axisTitle,
         this.chartTitle,
         this.xAxis,
@@ -49,66 +49,125 @@ define(function (require) {
       ], Boolean);
     }
 
-    // Render the visualization
+    /**
+     * Renders the constructors that create the visualization,
+     * including the chart constructor
+     *
+     * @method render
+     * @returns {HTMLElement} With the visualization child element
+     */
     Handler.prototype.render = function () {
       var self = this;
-      // Save a reference to the charts
       var charts = this.charts = [];
 
-      // Render objects in the render array
-      _.forEach(this.renderArray, function (property) {
+      this.renderArray.forEach(function (property) {
         if (typeof property.render === 'function') {
           property.render();
         }
       });
 
-      // Add charts to the visualization
+      // render the chart(s)
       d3.select(this.el)
-        .selectAll('.chart')
-        .each(function (chartData) {
-          // new up the visualization type
-          var chart = new self.ChartClass(self, this, chartData);
+      .selectAll('.chart')
+      .each(function (chartData) {
+        var chart = new self.ChartClass(self, this, chartData);
+        var enabledEvents;
 
-          // Bind events to the chart
-          d3.rebind(chart, chart._attr.dispatch, 'on');
+         /*
+          * inside handler: if there are charts, bind events to charts
+          * functionality: track in array that event is enabled
+          * clean up event handlers every time it destroys the chart
+          * rebind them every time it creates the charts
+          */
+        if (chart.events.dispatch) {
+          enabledEvents = self.vis.eventTypes.enabled;
 
-          // Bubble events up to the Vis Class and Events Class
-          chart.on('click', function (e) {
-            self.vis.emit('click', e);
-          });
+          // Copy dispatch.on methods to chart object
+          d3.rebind(chart, chart.events.dispatch, 'on');
 
-          chart.on('hover', function (e) {
-            self.vis.emit('hover', e);
-          });
+          // Bind events to chart(s)
+          if (enabledEvents.length) {
+            enabledEvents.forEach(function (event) {
+              self.enable(event, chart);
+            });
+          }
+        }
 
-          chart.on('brush', function (e) {
-            self.vis.emit('brush', e);
-          });
-
-          // Save reference to charts
-          charts.push(chart);
-
-          // Render charts to screen
-          chart.render();
-        });
+        charts.push(chart);
+        chart.render();
+      });
     };
 
-    // Remove all DOM elements from the `el` provided
+
+    /**
+     * Enables events, i.e. binds specific events to the chart
+     * object(s) `on` method. For example, `click` or `mousedown` events.
+     * Emits the event to the Events class.
+     *
+     * @method enable
+     * @param event {String} Event type
+     * @param chart {Object} Chart
+     * @returns {*}
+     */
+    Handler.prototype.enable = function (event, chart) {
+      return chart.on(event, function (e) {
+        this.vis.emit(event, e);
+      }.bind(this));
+    };
+
+    /**
+     * Disables events by passing null to the event listener.
+     * According to the D3 documentation for event handling:
+     * https://github.com/mbostock/d3/wiki/Selections#on, to remove all
+     * listeners for a particular event type, pass null as the listener.
+     *
+     * @method disable
+     * @param event {String} Event type
+     * @param chart {Object} Chart
+     * @returns {*}
+     */
+    Handler.prototype.disable = function (event, chart) {
+      return chart.on(event, null);
+    };
+
+    /**
+     * Removes all DOM elements from the HTML element provided
+     *
+     * @method removeAll
+     * @param el {HTMLElement} Reference to the HTML Element that
+     * contains the chart
+     * @returns {D3.Selection|D3.Transition.Transition} With the chart
+     * child element removed
+     */
     Handler.prototype.removeAll = function (el) {
       return d3.select(el).selectAll('*').remove();
     };
 
-    // Display an error message on the screen
+    /**
+     * Displays an error message in the DOM
+     *
+     * @method error
+     * @param message {String} Error message to display
+     * @returns {HTMLElement} Displays the input message
+     */
     Handler.prototype.error = function (message) {
       this.removeAll(this.el);
 
-      // Return an error wrapper DOM element
-      return d3.select(this.el).append('div')
-        // class name needs `chart` in it for the polling checkSize function
-        // to continuously call render on resize
-        .attr('class', 'chart error')
-        .append('p')
-        .text(message);
+      return d3.select(this.el)
+      .append('div')
+      // class name needs `chart` in it for the polling checkSize function
+      // to continuously call render on resize
+      .attr('class', 'chart error')
+      .append('p')
+      .text(message);
+    };
+
+    Handler.prototype.destroy = function () {
+      this.charts.forEach(function (chart) {
+        if (_.isFunction(chart.destroy)) {
+          chart.destroy();
+        }
+      });
     };
 
     return Handler;
